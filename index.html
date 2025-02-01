@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Student Rank Predictor</title>
+    <meta name="viewport" content="initial-scale=1, width=device-width" />
+    <!-- Fonts to support Material Design -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+    />
+    <!-- Icons to support Material Design -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+    />
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@latest",
+          "react-dom": "https://esm.sh/react-dom@latest",
+          "react-dom/client": "https://esm.sh/react-dom@latest/client",
+          "react/jsx-runtime": "https://esm.sh/react@latest/jsx-runtime",
+          "@mui/material": "https://esm.sh/@mui/material@latest?external=react,react-dom",
+          "@mui/x-charts": "https://esm.sh/@mui/x-charts@latest?external=react,react-dom"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Embedded Data -->
+    <script type="application/json" id="analysis-data">
+      {{ analysis_data | safe }}
+    </script>
+    <script type="application/json" id="insights-data">
+      {{ insights | safe }}
+    </script>
+    <!-- Usage -->
+    {% raw %}
+    <script type="text/babel" data-type="module">
+      import * as React from "react";
+      import { useEffect, useState } from "react";
+      import { createRoot } from "react-dom/client";
+      import {
+        CssBaseline,
+        ThemeProvider,
+        Typography,
+        Container,
+        Box,
+        Grid,
+        Paper,
+        LinearProgress,
+        CircularProgress,
+        createTheme,
+      } from "@mui/material";
+      import { LineChart, BarChart, ChartContainer } from "@mui/x-charts";
+
+      // Create a theme instance.
+      const theme = createTheme({
+        palette: {
+          primary: { main: "#556cd6" },
+          secondary: { main: "#19857b" },
+          error: { main: "#d32f2f" },
+        },
+      });
+
+      const PerformanceAnalysis = () => {
+        const [performanceData, setPerformanceData] = useState(null);
+        const [insights, setInsights] = useState(null);
+
+        useEffect(() => {
+          try {
+            const analysisData = JSON.parse(
+              document.getElementById("analysis-data").textContent
+            );
+            const insightsData = JSON.parse(
+              document.getElementById("insights-data").textContent
+            );
+
+            setPerformanceData(analysisData);
+            setInsights(insightsData);
+          } catch (error) {
+            console.error("Error parsing JSON data:", error);
+          }
+        }, []);
+
+        if (!performanceData || !insights) {
+          return <CircularProgress />;
+        }
+
+        const {
+          total_accuracy = 0,
+          total_score = 0,
+          total_final_score = 0,
+          total_negative_score = 0,
+          total_rank = "N/A",
+          total_mistakes_corrected = 0,
+          accuracy_trends = [],
+          topic_performance = {},
+        } = performanceData;
+
+        const topicLabels = Object.keys(topic_performance);
+        const correctAnswers = topicLabels.map(
+          (topic) => topic_performance[topic]?.correct || 0
+        );
+        const totalQuestions = topicLabels.map(
+          (topic) => topic_performance[topic]?.total || 0
+        );
+
+        return (
+          <div>
+            <Typography variant="h6">Performance Analysis</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Typography variant="body1">
+                  Total Accuracy: {total_accuracy}%
+                </Typography>
+                <LinearProgress variant="determinate" value={total_accuracy} />
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="body1">Total Score: {total_score}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="body1">Final Score: {total_final_score}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="body1">Negative Score: {total_negative_score}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="body1">Rank: {total_rank}</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="body1">
+                  Mistakes Corrected: {total_mistakes_corrected}
+                </Typography>
+              </Grid>
+
+              {/* Line Chart for Accuracy Trends */}
+              <Grid item xs={12}>
+                {accuracy_trends.length > 0 ? (
+                  <ChartContainer width={600} height={300}>
+                    <LineChart
+                      series={[
+                        {
+                          data: accuracy_trends.map((value, index) => ({
+                            x: index + 1,
+                            y: value,
+                          })),
+                          label: "Accuracy Trends",
+                        },
+                      ]}
+                      xAxis={[{ data: accuracy_trends.map((_, index) => index + 1), label: "Quiz Number" }]}
+                      yAxis={[{ label: "Accuracy" }]}
+                    />
+                  </ChartContainer>
+                ) : (
+                  <Typography variant="body2">No accuracy data available.</Typography>
+                )}
+              </Grid>
+
+              {/* Bar Chart for Topic Performance */}
+              <Grid item xs={12}>
+                {correctAnswers.length > 0 && totalQuestions.length > 0 ? (
+                  <ChartContainer width={600} height={300}>
+                    <BarChart
+                      series={[
+                        { data: correctAnswers, label: "Correct Answers" },
+                        { data: totalQuestions, label: "Total Questions" },
+                      ]}
+                      xAxis={[{ data: topicLabels, label: "Topics" }]}
+                      yAxis={[{ label: "Number of Questions" }]}
+                    />
+                  </ChartContainer>
+                ) : (
+                  <Typography variant="body2">No data for correct answers or total questions.</Typography>
+                )}
+              </Grid>
+
+              {/* Insights Section */}
+              <Grid item xs={12}>
+                <Typography variant="h6">Insights</Typography>
+                <Typography variant="body1">
+                  Overall Performance: {insights["Overall Performance"] || "N/A"}
+                </Typography>
+                <Typography variant="body1">
+                  Weak Areas: {JSON.stringify(insights["Weak Areas"] || [])}
+                </Typography>
+                <Typography variant="body1">
+                  Improvement Trends: {insights["Improvement Trends"] || "N/A"}
+                </Typography>
+              </Grid>
+            </Grid>
+          </div>
+        );
+      };
+
+      function App() {
+        return (
+          <Container maxWidth="sm">
+            <Box sx={{ my: 4 }}>
+              <Typography variant="h4" gutterBottom align="center">
+                Student Rank Prediction & Performance Insights
+              </Typography>
+              <Grid container spacing={4}>
+                <Grid item xs={12}>
+                  <Paper elevation={3} sx={{ padding: 3 }}>
+                    <PerformanceAnalysis />
+                  </Paper>
+                </Grid>
+              </Grid>
+            </Box>
+          </Container>
+        );
+      }
+
+      const root = createRoot(document.getElementById("root"));
+      root.render(
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <App />
+        </ThemeProvider>
+      );
+    </script>
+    {% endraw %}
+  </body>
+</html>
